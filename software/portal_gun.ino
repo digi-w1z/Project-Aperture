@@ -1,74 +1,192 @@
 #include <Adafruit_NeoPixel.h>
-#ifdef __AVR__
- #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
-#endif
+#include <EEPROM.h>
+#include <SoftwareSerial.h>
 
-// Which pin on the Arduino is connected to the NeoPixels?
-// On a Trinket or Gemma we suggest changing this to 1:
-#define LED_PIN    6
+#include <DFRobotDFPlayerMini.h>
 
-// How many NeoPixels are attached to the Arduino?
-#define LED_COUNT 8
-int delayval = 500;
 
-// Declare our NeoPixel strip object:
-Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
-// Argument 1 = Number of pixels in NeoPixel strip
-// Argument 2 = Arduino pin number (most are valid)
-// Argument 3 = Pixel type flags, add together as needed:
-//   NEO_KHZ800  800 KHz bitstream (most NeoPixel products w/WS2812 LEDs)
-//   NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
-//   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
-//   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
-//   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
-const int BUTTON_PIN = 3; // the number of the pushbutton pin
+const unsigned long eventInterval = 300000;
+unsigned long previousTime = 0;
 
-// Variables will change:
-int lastState = HIGH; // the previous state from the input pin
-int currentState;    // the current reading from the input pin
+#define NUM_LEDS 24 
+#define PIN 7 
+#define LED  8
+#define LED_2 13
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, PIN, NEO_GRB + NEO_KHZ800);
+
+#define BUTTON 12
+#define BUTTON_2 11
+
+static const uint8_t PIN_MP3_TX = 2; // Connects to module's RX 
+static const uint8_t PIN_MP3_RX = 3; // Connects to module's TX 
+SoftwareSerial softwareSerial(PIN_MP3_RX, PIN_MP3_TX);
+
+// Create the Player object
+//DFRobotDFPlayerMini player;
 
 void setup() {
-  // initialize serial communication at 9600 bits per second:
-  #if defined(__AVR_ATtiny85__) && (F_CPU == 16000000)
-  clock_prescale_set(clock_div_1);
-#endif
+  // Init USB serial port for debugging
   Serial.begin(9600);
-  // initialize the pushbutton pin as an pull-up input
-  // the pull-up input pin will be HIGH when the switch is open and LOW when the switch is closed.
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-   strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
-  strip.show();            // Turn OFF all pixels ASAP
-  strip.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
+  // Init serial port for DFPlayer Mini
+  softwareSerial.begin(9600);
+
+  // Start communication with DFPlayer Mini
+//  if (player.begin(softwareSerial)) {
+   Serial.println("OK");
+
+    // Set volume to maximum (0 to 30).
+   // player.volume(30);
+    // Play the first MP3 file on the SD card
+   // player.play(1); 
+
+  pinMode(LED_2, OUTPUT);
+  pinMode(LED, OUTPUT);
+  pinMode(BUTTON, INPUT_PULLUP);
+  pinMode(BUTTON_2, INPUT_PULLUP);
+  strip.begin();
+  strip.show(); // Initialize all pixels to 'off'
+  }
+ 
+
+// *** REPLACE FROM HERE ***
+void loop() { 
+
+    // Set volume to maximum (0 to 30).
+    //player.volume(30);
+    // Play the first MP3 file on the SD card
+
+  
+  unsigned long currentTime = millis();
+  digitalWrite(LED_2, HIGH);
+  digitalWrite(LED, HIGH);
+    
+   if (digitalRead(BUTTON_2) == LOW) {
+    //player.play(1);
+      colorWipe(strip.Color(0, 65, 194), 50);
+      colorWipe(strip.Color(60, 125, 254), 50);
+      colorWipe(strip.Color(0, 65, 194), 50);
+   }
+        // blue
+  
+  
+  if  (digitalRead(BUTTON) == LOW) {
+    // player.play(2);
+      colorWipe(strip.Color(255, 165, 0), 50);
+      colorWipe(strip.Color(255, 215, 0), 50);
+      colorWipe(strip.Color(255, 165, 0), 50);
+   }
+
+   if (currentTime - previousTime >= eventInterval && digitalRead(BUTTON) == HIGH || digitalRead(BUTTON_2) == HIGH) {
+    /* Event code */
+    strip.fill((0,0,0));
+    strip.show();
+    
+   /* Update the timing for the next time around */
+    previousTime = currentTime;
+  }
 }
 
-void loop() {
-   // Fill along the length of the strip in various colors...
-   currentState = digitalRead(BUTTON_PIN);
+void RunningLights(byte red, byte green, byte blue, int WaveDelay) {
+  int Position=0;
+ 
+  for(int j=0; j<NUM_LEDS*2; j++)
+  {
+      Position++; // = 0; //Position + Rate;
+      for(int i=0; i<NUM_LEDS; i++) {
+        // sine wave, 3 offset waves make a rainbow!
+        //float level = sin(i+Position) * 127 + 128;
+        //setPixel(i,level,0,0);
+        //float level = sin(i+Position) * 127 + 128;
+        setPixel(i,((sin(i+Position) * 127 + 128)/255)*red,
+                   ((sin(i+Position) * 127 + 128)/255)*green,
+                   ((sin(i+Position) * 127 + 128)/255)*blue);
+      }
+     
+      showStrip();
+      delay(WaveDelay);
+  }
+}
 
-  //if(currentState == LOW)
-   //colorWipe(strip.Color(253,   102,   0), 50); // Blue
-   //if(currentState == HIGH)// Red
-  //colorWipe(strip.Color(  0, 120,   255), 50); // Orange
+void RGBLoop(){
+  for(int j = 0; j < 3; j++ ) { 
+    // Fade IN
+    for(int k = 0; k < 256; k++) { 
+      switch(j) { 
+        case 0: setAll(k,0,0); break;
+        case 1: setAll(0,k,0); break;
+        case 2: setAll(0,0,k); break;
+      }
+      showStrip();
+      delay(3);
+    }
+    // Fade OUT
+    for(int k = 255; k >= 0; k--) { 
+      switch(j) { 
+        case 0: setAll(k,0,0); break;
+        case 1: setAll(0,k,0); break;
+        case 2: setAll(0,0,k); break;
+      }
+      showStrip();
+      delay(3);
+    }
+  }
+}
 
-  if(currentState == LOW)
-   colorWipe(strip.Color(171,   5,   5), 50); // Red 
-   if(currentState == HIGH)// Red
-  colorWipe(strip.Color(  251, 242,   41), 50); // Yellow
-
-   //if(currentState == LOW)
-  // colorWipe(strip.Color(253,   102,   0), 50); // Purple
-  // if(currentState == HIGH)// Red
-  //colorWipe(strip.Color(  0, 120,   255), 50); // Cyan
+void FadeInOut(byte red, byte green, byte blue){
+  float r, g, b;
+      
+  for(int k = 0; k < 256; k=k+1) { 
+    r = (k/256.0)*red;
+    g = (k/256.0)*green;
+    b = (k/256.0)*blue;
+    setAll(r,g,b);
+    showStrip();
+  }
+     
+  for(int k = 255; k >= 0; k=k-2) {
+    r = (k/256.0)*red;
+    g = (k/256.0)*green;
+    b = (k/256.0)*blue;
+    setAll(r,g,b);
+    showStrip();
+  }
 }
 
 
-// Some functions of our own for creating animated effects -----------------
+// Apply LED color changes
+void showStrip() {
+ #ifdef ADAFRUIT_NEOPIXEL_H 
+   // NeoPixel
+   strip.show();
+ #endif
+ #ifndef ADAFRUIT_NEOPIXEL_H
+   // FastLED
+   FastLED.show();
+ #endif
+}
 
-// Fill strip pixels one after another with a color. Strip is NOT cleared
-// first; anything there will be covered pixel by pixel. Pass in color
-// (as a single 'packed' 32-bit value, which you can get by calling
-// strip.Color(red, green, blue) as shown in the loop() function above),
-// and a delay time (in milliseconds) between pixels.
+// Set a LED color (not yet visible)
+void setPixel(int Pixel, byte red, byte green, byte blue) {
+ #ifdef ADAFRUIT_NEOPIXEL_H 
+   // NeoPixel
+   strip.setPixelColor(Pixel, strip.Color(red, green, blue));
+ #endif
+ #ifndef ADAFRUIT_NEOPIXEL_H 
+   // FastLED
+   leds[Pixel].r = red;
+   leds[Pixel].g = green;
+   leds[Pixel].b = blue;
+ #endif
+}
+
+// Set all LEDs to a given color and apply it (visible)
+void setAll(byte red, byte green, byte blue) {
+  for(int i = 0; i < NUM_LEDS; i++ ) {
+    setPixel(i, red, green, blue); 
+  }
+  showStrip();
+}
+
 void colorWipe(uint32_t color, int wait) {
   for(int i=0; i<strip.numPixels(); i++) { // For each pixel in strip...
     strip.setPixelColor(i, color);         //  Set pixel's color (in RAM)
